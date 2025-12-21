@@ -50,25 +50,38 @@ async def check_ip_used() -> dict:
     This function checks if a user (name and IP address/subnet)
     appears more than two times in the ACTIVE_USERS list.
     """
-    all_users_log = {}
+    all_users_log: dict[str, list[str]] = {}
+    display_info: dict[str, dict[str, list[str]]] = {}
     for email in list(ACTIVE_USERS.keys()):
         data = ACTIVE_USERS[email]
+        unique_ips = list(dict.fromkeys(data.ip))
         data.ip = collapse_ips_to_subnets(data.ip)
         all_users_log[email] = data.ip
+        display_info[email] = {
+            "subnets": data.ip,
+            "ips": unique_ips,
+        }
         logger.info(data)
-    total_ips = sum(len(ips) for ips in all_users_log.values())
-    all_users_log = dict(
+    total_ips = sum(len(info["subnets"]) for info in display_info.values())
+    display_info = dict(
         sorted(
-            all_users_log.items(),
-            key=lambda x: len(x[1]),
+            display_info.items(),
+            key=lambda x: len(x[1]["subnets"]),
             reverse=True,
         )
     )
     messages = [
-        f"<code>{email}</code> with <code>{len(ips)}</code> active ip  \n- "
-        + "\n- ".join(ips)
-        for email, ips in all_users_log.items()
-        if ips
+        "\n".join(
+            [
+                f"<code>{email}</code> with <code>{len(info['subnets'])}</code> active ip",
+                "- Subnets:",
+                "- " + "\n- ".join(info["subnets"]),
+                "- IPs:",
+                "- " + "\n- ".join(info["ips"]),
+            ]
+        )
+        for email, info in display_info.items()
+        if info["subnets"]
     ]
     logger.info("Number of all active ips: %s", str(total_ips))
     messages.append(f"---------\nCount Of All Active IPs: <b>{total_ips}</b>")
